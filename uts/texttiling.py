@@ -8,22 +8,32 @@ from copy import deepcopy
 from utils import *
 
 class TextTiling:
+    """
+    Reference:
+        "TextTiling: Segmenting Text into Multi-paragraph Subtopic Passages"
+    """
 
-    def __init__(self, window=5):
+    def __init__(self, window=5, tokenizer=EnglishTokenizer()):
+        """
+        window: int, window size for similarity computation
+        tokenizer: an object with tokenize() method,
+                   which takes a string as argument and return a sequence of tokens.
+        """
         self.window = window
+        self.tokenizer = tokenizer
 
-    def segment(self, document, language='Chinese'):
-        assert(language == 'Chinese' or language == 'English')
+    def segment(self, document):
+        """
+        document: list[str]
+        return list[int],
+            i-th element denotes whether exists a boundary right before paragraph i(0 indexed)
+        """
+        # ensure document is not empty and every element is an instance of str
+        assert(len(document) > 0 and len(filter(lambda d: not isinstance(d, str), document)) == 0)
         # step 1, do preprocessing
         n = len(document)
         self.window = max(min(self.window, n / 3), 1)
-        if language == 'Chinese':
-            # for chinese, add character one by one
-            cnts = [Counter(document[i]) for i in xrange(n)]
-        elif language == 'English':
-            document = map(lambda d: d.lower(), document)
-            # for english, split sentence by space
-            cnts = [Counter(document[i].split()) for i in xrange(n)]
+        cnts = [Counter(self.tokenizer.tokenize(document[i])) for i in xrange(n)]
 
         # step 2, calculate gap score
         gap_score = [0 for _ in xrange(n)]
@@ -65,11 +75,9 @@ class TextTiling:
         stdev = np.std(smooth_dep_score)
         cutoff = avg - stdev / 2.0
 
-        # smooth_dep_score = deepcopy(depth_score)
         depth_tuples = zip(smooth_dep_score, range(len(smooth_dep_score)))
         depth_tuples.sort()
         depth_tuples.reverse()
-        # hp = depth_tuples[:len(depth_tuples) / 5]
         hp = filter(lambda x: (x[0] > cutoff), depth_tuples)
         for dt in hp:
             boundaries[dt[1]] = 1
@@ -77,4 +85,4 @@ class TextTiling:
                 if i != dt[1] and i >= 0 and i < n and boundaries[i] == 1:
                     boundaries[dt[1]] = 0
                     break
-        return boundaries
+        return [1] + boundaries[:-1]

@@ -4,59 +4,38 @@ from collections import Counter
 import numpy as np
 from utils import *
 
-class Region:
-    def __init__(self, l, r, sm_matrix):
-        assert(r >= l)
-        self.tot = sm_matrix[l][r]
-        self.l = l
-        self.r = r
-        self.area = (r - l + 1)**2
-        self.lch, self.rch, self.best_pos = None, None, -1
-
-    def split(self, sm_matrix):
-        if self.best_pos >= 0:
-            return
-        if self.l == self.r:
-            self.best_pos = self.l
-            return
-        assert(self.r > self.l)
-        mx, pos = -1e9, -1
-        for i in xrange(self.l, self.r):
-            carea = (i - self.l + 1)**2 + (self.r - i)**2
-            cur = (sm_matrix[self.l][i] + sm_matrix[i + 1][self.r]) / carea
-            if cur > mx:
-                mx, pos = cur, i
-        assert(pos >= self.l and pos < self.r)
-        self.lch = Region(self.l, pos, sm_matrix)
-        self.rch = Region(pos + 1, self.r, sm_matrix)
-        self.best_pos = pos
-
 class C99:
-    def __init__(self, window=4, std_coeff=1.2):
+    """
+    Reference:
+        "Advances in domain independent linear text segmentation"
+    """
+    def __init__(self, window=4, std_coeff=1.2, tokenizer=EnglishTokenizer()):
+        """
+        window: int, window size for local similarity ranking
+        std_coeff: double, threshold to determine boundary, see paper for more details
+        tokenizer: an object with tokenize() method,
+                   which takes a string as argument and return a sequence of tokens.
+        """
         self.window = window
         self.sim = None
         self.rank = None
         self.sm = None
         self.std_coeff = std_coeff
+        self.tokenizer = tokenizer
 
-    def segment(self, document, language='Chinese', para_cnts=None):
-        assert(language == 'English' or language == 'Chinese')
+    def segment(self, document):
+        """
+        document: list[str]
+        return list[int],
+            i-th element denotes whether exists a boundary right before paragraph i(0 indexed)
+        """
+        assert(len(document) > 0 and len(filter(lambda d: not isinstance(d, str), document)) == 0)
         if len(document) < 3:
-            return [0 for _ in xrange(len(document))]
+            return [1] + [0 for _ in xrange(len(document) - 1)]
         # step 1, preprocessing
         n = len(document)
         self.window = min(self.window, n)
-        if para_cnts != None:
-            assert(len(para_cnts) == len(document))
-            cnts = para_cnts
-        elif language == 'Chinese':
-            document = map(lambda d: d, document)
-            # for chinese, add character one by one
-            cnts = [Counter(document[i]) for i in xrange(n)]
-        elif language == 'English':
-            document = map(lambda d: d.lower(), document)
-            # for english, split by space
-            cnts = [Counter(document[i].split()) for i in xrange(n)]
+        cnts = [Counter(self.tokenizer.tokenize(document[i])) for i in xrange(n)]
 
         # step 2, compute similarity matrix
         self.sim = np.zeros((n, n))
@@ -149,4 +128,35 @@ class C99:
                 if j >= 0 and j < n and j != i and ret[j] == 1:
                     ret[i] = 0
                     break
-        return ret
+        return [1] + ret[:-1]
+
+class Region:
+    """
+    Used to denote a rectangular region of similarity matrix,
+    never instantiate this class outside the package.
+    """
+    def __init__(self, l, r, sm_matrix):
+        assert(r >= l)
+        self.tot = sm_matrix[l][r]
+        self.l = l
+        self.r = r
+        self.area = (r - l + 1)**2
+        self.lch, self.rch, self.best_pos = None, None, -1
+
+    def split(self, sm_matrix):
+        if self.best_pos >= 0:
+            return
+        if self.l == self.r:
+            self.best_pos = self.l
+            return
+        assert(self.r > self.l)
+        mx, pos = -1e9, -1
+        for i in xrange(self.l, self.r):
+            carea = (i - self.l + 1)**2 + (self.r - i)**2
+            cur = (sm_matrix[self.l][i] + sm_matrix[i + 1][self.r]) / carea
+            if cur > mx:
+                mx, pos = cur, i
+        assert(pos >= self.l and pos < self.r)
+        self.lch = Region(self.l, pos, sm_matrix)
+        self.rch = Region(pos + 1, self.r, sm_matrix)
+        self.best_pos = pos

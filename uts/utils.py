@@ -19,3 +19,13 @@ def cosine_sim(c1, c2):
         return num / (n1 * n2)
     except:
         return 0
+
+class EnglishTokenizer:
+    """
+    A tokenizer is a class with tokenize(text) method
+    """
+    def __init__(self):
+        pass
+
+    def tokenize(self, text):
+        return text.lower().split()
