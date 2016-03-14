@@ -13,7 +13,7 @@ setup(
     version = ".".join(map(str, __version__)),
     description = "python package for unsupervised text segmentation",
     long_description = read('README.md'),
-    url = '',
+    url = 'https://github.com/intfloat/uts',
     license = 'MIT',
     author = 'Liang Wang',
     author_email = 'wangliangpeking@gmail.com',
