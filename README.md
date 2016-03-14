@@ -2,7 +2,7 @@
 
 ### Install
 
-    sudo python setup.py install
+    sudo pip install uts
 
 ### Usage
 
