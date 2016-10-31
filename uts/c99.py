@@ -2,7 +2,7 @@
 # A python implementation of C99 algorithm for topic segmentation
 from collections import Counter
 import numpy as np
-from utils import *
+from .utils import *
 
 class C99:
     """
@@ -29,31 +29,31 @@ class C99:
         return list[int],
             i-th element denotes whether exists a boundary right before paragraph i(0 indexed)
         """
-        assert(len(document) > 0 and len(filter(lambda d: not isinstance(d, str), document)) == 0)
+        assert(len(document) > 0 and len([d for d in document if not isinstance(d, str)]) == 0)
         if len(document) < 3:
-            return [1] + [0 for _ in xrange(len(document) - 1)]
+            return [1] + [0 for _ in range(len(document) - 1)]
         # step 1, preprocessing
         n = len(document)
         self.window = min(self.window, n)
-        cnts = [Counter(self.tokenizer.tokenize(document[i])) for i in xrange(n)]
+        cnts = [Counter(self.tokenizer.tokenize(document[i])) for i in range(n)]
 
         # step 2, compute similarity matrix
         self.sim = np.zeros((n, n))
-        for i in xrange(n):
-            for j in xrange(i, n):
+        for i in range(n):
+            for j in range(i, n):
                 self.sim[i][j] = cosine_sim(cnts[i], cnts[j])
                 self.sim[j][i] = self.sim[i][j]
 
         # step 3, compute rank matrix & sum matrix
         self.rank = np.zeros((n, n))
-        for i in xrange(n):
-            for j in xrange(i, n):
+        for i in range(n):
+            for j in range(i, n):
                 r1 = max(0, i - self.window + 1)
                 r2 = min(n - 1, i + self.window - 1)
                 c1 = max(0, j - self.window + 1)
                 c2 = min(n - 1, j + self.window - 1)
                 sublist = self.sim[r1:(r2 + 1), c1:(c2+1)].flatten()
-                lowlist = filter(lambda x: x < self.sim[i][j], sublist)
+                lowlist = [x for x in sublist if x < self.sim[i][j]]
                 self.rank[i][j] = 1.0 * len(lowlist) / ((r2 - r1 + 1) * (c2 - c1 + 1))
                 self.rank[j][i] = self.rank[i][j]
 
@@ -65,14 +65,14 @@ class C99:
         #         self.sm[j][i] = self.sm[i][j]
         # O(n^2) solution
         prefix_sm = np.zeros((n, n))
-        for i in xrange(n):
-            for j in xrange(n):
+        for i in range(n):
+            for j in range(n):
                 prefix_sm[i][j] = self.rank[i][j]
                 if i - 1 >= 0: prefix_sm[i][j] += prefix_sm[i - 1][j]
                 if j - 1 >= 0: prefix_sm[i][j] += prefix_sm[i][j - 1]
                 if i - 1 >= 0 and j - 1 >= 0: prefix_sm[i][j] -= prefix_sm[i - 1][j - 1]
-        for i in xrange(n):
-            for j in xrange(i, n):
+        for i in range(n):
+            for j in range(i, n):
                 if i == 0:
                     self.sm[i][j] = prefix_sm[j][j]
                 else:
@@ -84,7 +84,7 @@ class C99:
         D = 1.0 * self.sm[0][n - 1] / (n * n)
         darr, region_arr, idx = [D], [Region(0, n - 1, self.sm)], []
         sum_region, sum_area = float(self.sm[0][n - 1]), float(n * n)
-        for i in xrange(n - 1):
+        for i in range(n - 1):
             mx, pos = -1e9, -1
             for j, region in enumerate(region_arr):
                 if region.l == region.r:
@@ -103,28 +103,28 @@ class C99:
             darr.append(sum_region / sum_area)
             idx.append(tmp.best_pos)
 
-        dgrad = [(darr[i + 1] - darr[i]) for i in xrange(len(darr) - 1)]
+        dgrad = [(darr[i + 1] - darr[i]) for i in range(len(darr) - 1)]
 
         # optional step, smooth gradient
-        smooth_dgrad = [dgrad[i] for i in xrange(len(dgrad))]
+        smooth_dgrad = [dgrad[i] for i in range(len(dgrad))]
         if len(dgrad) > 1:
             smooth_dgrad[0] = (dgrad[0] * 2 + dgrad[1]) / 3.0
             smooth_dgrad[-1] = (dgrad[-1] * 2 + dgrad[-2]) / 3.0
-        for i in xrange(1, len(dgrad) - 1):
+        for i in range(1, len(dgrad) - 1):
             smooth_dgrad[i] = (dgrad[i - 1] + 2 * dgrad[i] + dgrad[i + 1]) / 4.0
         dgrad = smooth_dgrad
 
         avg, stdev = np.average(dgrad), np.std(dgrad)
         cutoff = avg + self.std_coeff * stdev
         assert(len(idx) == len(dgrad))
-        above_cutoff_idx = [i for i in xrange(len(dgrad)) if dgrad[i] >= cutoff]
+        above_cutoff_idx = [i for i in range(len(dgrad)) if dgrad[i] >= cutoff]
         if len(above_cutoff_idx) == 0: boundary = []
         else: boundary = idx[:max(above_cutoff_idx) + 1]
-        ret = [0 for _ in xrange(n)]
+        ret = [0 for _ in range(n)]
         for i in boundary:
             ret[i] = 1
             # boundary should not be too close
-            for j in xrange(i - 1, i + 2):
+            for j in range(i - 1, i + 2):
                 if j >= 0 and j < n and j != i and ret[j] == 1:
                     ret[i] = 0
                     break
@@ -151,7 +151,7 @@ class Region:
             return
         assert(self.r > self.l)
         mx, pos = -1e9, -1
-        for i in xrange(self.l, self.r):
+        for i in range(self.l, self.r):
             carea = (i - self.l + 1)**2 + (self.r - i)**2
             cur = (sm_matrix[self.l][i] + sm_matrix[i + 1][self.r]) / carea
             if cur > mx:
