@@ -2,7 +2,13 @@
 
 ### Install
 
+For ```python 2.x```:
+
     sudo pip install uts
+
+For ```python 3.x```:
+
+    sudo pip3 install uts
 
 ### Usage
 
